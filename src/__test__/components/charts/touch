@@ -1,0 +1,77 @@
+import React from 'react';
+import { render } from '@testing-library/react';
+import LineChart from '../../../components/charts/LineChart';
+
+// Mock Recharts to avoid rendering issues in test environment
+jest.mock('recharts', () => {
+  const OriginalModule = jest.requireActual('recharts');
+  return {
+    ...OriginalModule,
+    ResponsiveContainer: ({ children }) => <div data-testid="responsive-container">{children}</div>,
+    LineChart: ({ children }) => <div data-testid="line-chart">{children}</div>,
+    Line: ({ dataKey, name }) => <div data-testid={`line-${dataKey}`} data-name={name} />,
+    XAxis: ({ dataKey }) => <div data-testid="x-axis" data-key={dataKey} />,
+    YAxis: () => <div data-testid="y-axis" />,
+    CartesianGrid: () => <div data-testid="cartesian-grid" />,
+    Tooltip: () => <div data-testid="tooltip" />,
+    Legend: () => <div data-testid="legend" />
+  };
+});
+
+describe('LineChart Component', () => {
+  const mockData = [
+    { date: '2023-01-01', value1: 10, value2: 20 },
+    { date: '2023-01-02', value1: 15, value2: 25 },
+    { date: '2023-01-03', value1: 20, value2: 30 }
+  ];
+
+  const mockLines = [
+    { dataKey: 'value1', name: 'Value 1', color: '#ff0000' },
+    { dataKey: 'value2', name: 'Value 2', color: '#00ff00' }
+  ];
+
+  test('renders chart with proper configuration', () => {
+    const { getByTestId, getAllByTestId } = render(
+      <LineChart
+        data={mockData}
+        xAxisDataKey="date"
+        lines={mockLines}
+        xAxisLabel="Date"
+        yAxisLabel="Values"
+      />
+    );
+
+    // Verify main components are rendered
+    expect(getByTestId('responsive-container')).toBeInTheDocument();
+    expect(getByTestId('line-chart')).toBeInTheDocument();
+    expect(getByTestId('x-axis')).toBeInTheDocument();
+    expect(getByTestId('y-axis')).toBeInTheDocument();
+    expect(getByTestId('cartesian-grid')).toBeInTheDocument();
+    expect(getByTestId('tooltip')).toBeInTheDocument();
+    expect(getByTestId('legend')).toBeInTheDocument();
+
+    // Verify lines are rendered with correct data keys
+    const lines = getAllByTestId(/^line-/);
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toHaveAttribute('data-testid', 'line-value1');
+    expect(lines[0]).toHaveAttribute('data-name', 'Value 1');
+    expect(lines[1]).toHaveAttribute('data-testid', 'line-value2');
+    expect(lines[1]).toHaveAttribute('data-name', 'Value 2');
+
+    // Verify x-axis configuration
+    expect(getByTestId('x-axis')).toHaveAttribute('data-key', 'date');
+  });
+
+  test('disables grid when gridEnabled is false', () => {
+    const { queryByTestId } = render(
+      <LineChart
+        data={mockData}
+        xAxisDataKey="date"
+        lines={mockLines}
+        gridEnabled={false}
+      />
+    );
+
+    expect(queryByTestId('cartesian-grid')).not.toBeInTheDocument();
+  });
+});
