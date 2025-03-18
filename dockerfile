@@ -2,22 +2,36 @@ FROM node:18-alpine as build
 
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Set environment variables
+ARG ENVIRONMENT=prod
+ENV ENVIRONMENT=$ENVIRONMENT
+
+# Copy package files for better dependency caching
 COPY package*.json ./
 
-# Install dependencies
+# Install dependencies - preserving existing approach
 RUN npm ci
 
 # Copy source code
 COPY . .
 
-# Build the application
+# Add environment configuration preparation
+RUN if [ -f "scripts/prepare-env.js" ]; then \
+    mkdir -p config && \
+    node scripts/prepare-env.js $ENVIRONMENT || echo "Using default configuration"; \
+fi
+
+# Build the application - preserving existing command
 RUN npm run build
 
 # Production stage
 FROM nginx:alpine
 
-# Copy nginx configuration
+# Add health check for container monitoring
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -q --spider http://localhost/ || exit 1
+
+# Copy nginx configuration - preserving existing path
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy built assets to nginx
